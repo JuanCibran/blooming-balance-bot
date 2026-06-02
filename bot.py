@@ -4,7 +4,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filte
 
 from config import TELEGRAM_BOT_TOKEN
 from parser import parse_message
-from bigquery_writer import insert_movimiento
+from sheets_writer import append_movimiento
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -68,7 +68,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        insert_movimiento(data)
+        append_movimiento(data)
         confirmation = _format_confirmation(data)
         await update.message.reply_text(f"✅ {confirmation}", parse_mode="Markdown")
 
