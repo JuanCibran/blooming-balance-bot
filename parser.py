@@ -13,7 +13,7 @@ Hoy es {today}.
 Devolvé SIEMPRE un JSON válido con esta estructura exacta:
 {{
   "tipo": "venta" | "gasto" | "reinversion",
-  "fecha": "YYYY-MM-DD",
+  "fecha": "DD/MM/YYYY",
   "descripcion": "nombre del cliente o descripción del gasto",
   "n_orden": número entero o null,
   "precio_unit": número decimal o null,
@@ -32,7 +32,7 @@ Reglas:
 """
 
 def parse_message(text: str) -> dict:
-    today = date.today().strftime("%Y-%m-%d")
+    today = date.today().strftime("%d/%m/%Y")
 
     response = client.messages.create(
         model="claude-haiku-4-5-20251001",
