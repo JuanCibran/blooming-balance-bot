@@ -31,8 +31,9 @@ def get_client():
 
 
 def setup():
+    from config import SPREADSHEET_ID
     client = get_client()
-    wb = client.create("🌸 Blooming Essie — Control")
+    wb = client.open_by_key(SPREADSHEET_ID)
 
     # ── Hoja 1: Registro Diario ────────────────────────────────────────────────
     ws1 = wb.sheet1

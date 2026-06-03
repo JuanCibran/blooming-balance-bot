@@ -18,13 +18,17 @@ def _get_client() -> gspread.Client:
     return gspread.authorize(creds)
 
 
-def append_movimiento(data: dict):
-    """Agrega una fila al Registro Diario del Sheet."""
-    client = _get_client()
-    sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_REGISTRO)
+def _get_sheet():
+    return _get_client().open_by_key(SPREADSHEET_ID).worksheet(SHEET_REGISTRO)
 
-    # Orden de columnas: Fecha | Tipo | Categoría | Descripción | Producto/SKU |
-    #                    n orden | Precio Unit. | Total ($) | Medio de pago | Notas
+
+def append_row(row: list):
+    """Agrega una fila (lista) directamente al Registro Diario."""
+    _get_sheet().append_row(row, value_input_option="USER_ENTERED")
+
+
+def append_movimiento(data: dict):
+    """Convierte un dict del parser y lo agrega al Registro Diario."""
     row = [
         data.get("fecha", ""),
         (data.get("tipo") or "").capitalize(),
@@ -37,5 +41,4 @@ def append_movimiento(data: dict):
         (data.get("medio_pago") or "").upper(),
         data.get("notas") or "",
     ]
-
-    sheet.append_row(row, value_input_option="USER_ENTERED")
+    append_row(row)

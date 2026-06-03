@@ -1,10 +1,14 @@
+import asyncio
 import logging
+import os
+from aiohttp import web
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
 from config import TELEGRAM_BOT_TOKEN
 from parser import parse_message
 from sheets_writer import append_movimiento
+from webhook_server import create_app
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -79,12 +83,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-def main():
-    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    logging.info("Bot iniciado.")
-    app.run_polling()
+async def main():
+    # Telegram bot
+    tg_app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+    tg_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    # Webhook server (aiohttp)
+    port = int(os.environ.get("PORT", 8080))
+    web_app = create_app()
+    runner = web.AppRunner(web_app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    logging.info(f"Webhook server escuchando en puerto {port}.")
+
+    # Correr ambos juntos
+    async with tg_app:
+        await tg_app.start()
+        logging.info("Bot iniciado.")
+        await tg_app.updater.start_polling()
+        await asyncio.Event().wait()  # Corre indefinidamente
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
