@@ -9,13 +9,12 @@ SHEET_REGISTRO = "📋 Registro Diario"
 
 
 def _get_client() -> gspread.Client:
-    if GOOGLE_CREDENTIALS_JSON:
-        info = json.loads(GOOGLE_CREDENTIALS_JSON)
+    raw = GOOGLE_CREDENTIALS_JSON or GOOGLE_APPLICATION_CREDENTIALS
+    if raw and raw.strip().startswith("{"):
+        info = json.loads(raw)
         creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
     else:
-        creds = service_account.Credentials.from_service_account_file(
-            GOOGLE_APPLICATION_CREDENTIALS, scopes=SCOPES
-        )
+        creds = service_account.Credentials.from_service_account_file(raw, scopes=SCOPES)
     return gspread.authorize(creds)
 
 
