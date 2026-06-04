@@ -1,15 +1,15 @@
-# Blooming Essie — control de caja
+# Blooming Essie — cash flow tracker
 
-Bot de Telegram para registrar ventas y gastos en Google Sheets sin abrir ninguna planilla. Mandás un mensaje de texto, Claude lo interpreta, y aparece la fila cargada sola. Las órdenes de Tienda Nube se capturan automáticamente via webhook.
+Telegram bot that logs sales and expenses to Google Sheets without opening any spreadsheet. You send a text message, Claude interprets it, and the row shows up on its own. Tienda Nube orders are captured automatically via webhook.
 
-## Cómo funciona
+## How it works
 
-Hay dos caminos para que un dato llegue al Sheet:
+Two ways for data to reach the Sheet:
 
-1. **Telegram** → escribís algo como `venta María orden 195 $45000 TC` → `parser.py` se lo manda a Claude Haiku → devuelve JSON → se escribe en el Registro Diario
-2. **Tienda Nube** → llega un webhook de orden pagada → se consulta la orden completa en la API → se escribe en el Registro Diario
+1. **Telegram** → you write something like `venta María orden 195 $45000 TC` → `parser.py` sends it to Claude Haiku → gets back JSON → written to the Daily Log
+2. **Tienda Nube** → a paid order webhook comes in → full order is fetched from the API → written to the Daily Log
 
-El Sheet tiene 4 hojas: Registro Diario, Resumen Mensual, Stock y Caja & Reinversión.
+The Sheet has 4 tabs: Daily Log, Monthly Summary, Stock, and Cash & Reinvestment.
 
 ## Setup
 
@@ -17,7 +17,7 @@ El Sheet tiene 4 hojas: Registro Diario, Resumen Mensual, Stock y Caja & Reinver
 pip install -r requirements.txt
 ```
 
-Crear `.env` con estas variables:
+Create a `.env` file with these variables:
 
 ```env
 TELEGRAM_BOT_TOKEN=
@@ -26,38 +26,38 @@ TIENDANUBE_USER_ID=
 TIENDANUBE_ACCESS_TOKEN=
 SPREADSHEET_ID=
 
-# local: path al JSON del service account
-GOOGLE_APPLICATION_CREDENTIALS=/ruta/al/service-account.json
+# local: path to the service account JSON
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
 
-# Railway: pegar el contenido del JSON como string
+# Railway: paste the JSON content as a string
 GOOGLE_CREDENTIALS_JSON={"type":"service_account",...}
 ```
 
-Si el Sheet todavía no existe, correr esto una sola vez:
+If the Sheet doesn't exist yet, run this once:
 
 ```bash
 python setup_sheet.py
 ```
 
-Imprime el `SPREADSHEET_ID` y crea todas las hojas. Después acordarse de compartir el Sheet con el email del service account.
+It prints the `SPREADSHEET_ID` and creates all the tabs. Then share the Sheet with the service account email.
 
-Para migrar datos del Excel viejo, editar `EXCEL_PATH` en `import_excel.py` y correr:
+To migrate data from the old Excel file, edit `EXCEL_PATH` in `import_excel.py` and run:
 
 ```bash
 python import_excel.py
 ```
 
-## Correr el bot
+## Running the bot
 
 ```bash
 python bot.py
 ```
 
-Levanta el bot de Telegram y el servidor de webhooks en el mismo proceso.
+Starts the Telegram bot and the webhook server in the same process.
 
-## Formato de mensajes
+## Message format
 
-No hay un formato estricto, Claude deduce lo que puede. Algunos ejemplos:
+There's no strict format — Claude figures out what it can. Some examples:
 
 ```
 venta María García orden 195 $45000 TC
@@ -65,16 +65,16 @@ gasto Correo Argentino $8500
 reinversion compra de mercadería $120000 TRF
 ```
 
-Medios de pago: `TC` = tarjeta de crédito, `TRF` = transferencia, `MP` = Mercado Pago.
+Payment methods: `TC` = credit card, `TRF` = bank transfer, `MP` = Mercado Pago.
 
 ## Deploy (Railway)
 
-Configurado en `railway.toml`. Usar `GOOGLE_CREDENTIALS_JSON` en lugar del path al archivo.
+Configured in `railway.toml`. Use `GOOGLE_CREDENTIALS_JSON` instead of a file path.
 
-El webhook de Tienda Nube va a:
+The Tienda Nube webhook points to:
 
 ```
-https://<dominio-railway>/webhook/tiendanube
+https://<railway-domain>/webhook/tiendanube
 ```
 
-`/health` devuelve `ok` si el servidor está andando.
+`/health` returns `ok` if the server is running.
