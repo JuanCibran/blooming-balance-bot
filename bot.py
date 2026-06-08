@@ -60,21 +60,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("⏳ Procesando...")
 
     try:
-        data = parse_message(text)
+        items = parse_message(text)
 
-        if "error" in data:
+        confirmations = []
+        for data in items:
+            if "error" in data:
+                await update.message.reply_text(
+                    f"❌ No pude procesar un ítem: {data['error']}\n\n"
+                    "Probá con algo como:\n"
+                    "• _venta María García orden 195 $45000 TC_\n"
+                    "• _gasto Correo Argentino $8500_",
+                    parse_mode="Markdown",
+                )
+                continue
+
+            append_movimiento(data)
+            confirmations.append(_format_confirmation(data))
+
+        if confirmations:
             await update.message.reply_text(
-                f"❌ No pude procesar el mensaje: {data['error']}\n\n"
-                "Probá con algo como:\n"
-                "• _venta María García orden 195 $45000 TC_\n"
-                "• _gasto Correo Argentino $8500_",
-                parse_mode="Markdown",
+                "✅ " + "\n\n".join(confirmations), parse_mode="Markdown"
             )
-            return
-
-        append_movimiento(data)
-        confirmation = _format_confirmation(data)
-        await update.message.reply_text(f"✅ {confirmation}", parse_mode="Markdown")
 
     except Exception as e:
         logging.error(f"Error procesando mensaje: {e}", exc_info=True)

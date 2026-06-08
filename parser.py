@@ -10,7 +10,7 @@ Tu tarea es extraer datos estructurados de mensajes sobre ventas y gastos del ne
 
 Hoy es {today}.
 
-Devolvé SIEMPRE un JSON válido con esta estructura exacta:
+Devolvé SIEMPRE un array JSON (aunque sea un solo ítem) donde cada elemento tiene esta estructura:
 {{
   "tipo": "venta" | "gasto" | "reinversion",
   "fecha": "DD/MM/YYYY",
@@ -24,19 +24,20 @@ Devolvé SIEMPRE un JSON válido con esta estructura exacta:
 }}
 
 Reglas:
+- Si el mensaje menciona varios gastos o ventas, devolvé un objeto por cada uno.
 - Si no se menciona fecha, usá la fecha de hoy.
 - Para medios de pago: TC = tarjeta de crédito, TRF = transferencia, MP = Mercado Pago.
 - El total siempre es positivo (aunque sea un gasto).
-- Si no podés extraer el total, devolvé un error con "error": "no se pudo determinar el monto".
+- Si no podés extraer el total de algún ítem, incluí "error": "no se pudo determinar el monto" en ese objeto.
 - Solo devolvé el JSON, sin texto adicional.
 """
 
-def parse_message(text: str) -> dict:
+def parse_message(text: str) -> list[dict]:
     today = date.today().strftime("%d/%m/%Y")
 
     response = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=512,
+        max_tokens=1024,
         system=SYSTEM_PROMPT.format(today=today),
         messages=[{"role": "user", "content": text}],
     )
@@ -49,4 +50,5 @@ def parse_message(text: str) -> dict:
         if raw.startswith("json"):
             raw = raw[4:]
 
-    return json.loads(raw)
+    result = json.loads(raw)
+    return result if isinstance(result, list) else [result]
