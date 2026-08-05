@@ -6,6 +6,7 @@ from config import GOOGLE_APPLICATION_CREDENTIALS, GOOGLE_CREDENTIALS_JSON, SPRE
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 SHEET_REGISTRO = "📋 Registro Diario"
+SHEET_COMISIONES = "⚙️ Comisiones"
 
 
 def _get_client() -> gspread.Client:
@@ -25,6 +26,35 @@ def _get_sheet():
 def append_row(row: list):
     """Agrega una fila (lista) directamente al Registro Diario."""
     _get_sheet().append_row(row, value_input_option="USER_ENTERED")
+
+
+def get_commission_rates() -> dict:
+    """Lee la pestaña "⚙️ Comisiones" y devuelve {clave: tasa (0-1)}.
+
+    La pestaña tiene columnas Clave | Descripción | % Comisión. Juan la
+    edita a mano cuando Tienda Nube le cambia el porcentaje, sin tocar
+    código. Si la pestaña no existe o hay un error, devuelve {} y el
+    llamador decide cómo resolverlo (ver tiendanube_client._get_rates).
+    """
+    try:
+        ws = _get_client().open_by_key(SPREADSHEET_ID).worksheet(SHEET_COMISIONES)
+    except Exception:
+        return {}
+
+    rates = {}
+    for row in ws.get_all_values()[1:]:
+        if len(row) < 3:
+            continue
+        clave = (row[0] or "").strip().upper()
+        pct_raw = (row[2] or "").strip()
+        if not clave or not pct_raw:
+            continue
+        pct_raw = pct_raw.replace("%", "").strip().replace(",", ".")
+        try:
+            rates[clave] = float(pct_raw) / 100
+        except ValueError:
+            continue
+    return rates
 
 
 def append_movimiento(data: dict):

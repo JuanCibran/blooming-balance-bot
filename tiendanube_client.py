@@ -1,5 +1,6 @@
 import aiohttp
 from config import TIENDANUBE_USER_ID, TIENDANUBE_ACCESS_TOKEN
+from sheets_writer import get_commission_rates
 
 BASE_URL = f"https://api.tiendanube.com/v1/{TIENDANUBE_USER_ID}"
 HEADERS = {
@@ -8,21 +9,37 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
-# Comisiones reales según medio de pago / cuotas (Pago Nube y Mercado Pago).
-# Confirmadas por Juan el 04/08/2026. Si Tienda Nube cambia sus tasas, hay
-# que actualizar esto a mano (la API no informa el monto de comisión).
-COMMISSION_TRANSFER = 0.019         # Transferencia bancaria
-COMMISSION_CARD_1_CUOTA = 0.0532    # Débito o crédito, 1 cuota
-COMMISSION_CARD_3_CUOTAS = 0.228569 # Crédito, 3 cuotas
-COMMISSION_CARD_6_CUOTAS = 0.3072   # Crédito, 6 cuotas
-COMMISSION_MP_WALLET = 0.0611       # Mercado Pago, dinero en cuenta
-COMMISSION_OFFLINE = 0.0            # "A convenir" / pago manual, sin pasarela
-# MODO cobra la misma comisión que tarjeta débito/crédito según cuotas.
-CARD_RATES_BY_INSTALLMENTS = {
-    1: (COMMISSION_CARD_1_CUOTA, "1 cuota"),
-    3: (COMMISSION_CARD_3_CUOTAS, "3 cuotas"),
-    6: (COMMISSION_CARD_6_CUOTAS, "6 cuotas"),
+# La API de Tienda Nube no informa el monto de comisión de cada orden, y la
+# tasa cambia mes a mes. Por eso las tasas viven en la pestaña "⚙️ Comisiones"
+# del Sheet (Juan las edita ahí, sin tocar código). Esto es solo un respaldo
+# por si esa pestaña no se puede leer (ej. caída de Google Sheets) — no se
+# actualiza sola, sirve para que el bot no se rompa del todo ese día.
+_FALLBACK_RATES = {
+    "TRF": 0.019,       # Transferencia bancaria
+    "TC_1": 0.0532,     # Débito o crédito, 1 cuota
+    "TC_3": 0.228569,   # Crédito, 3 cuotas
+    "TC_6": 0.3072,     # Crédito, 6 cuotas
+    "MP": 0.0611,       # Mercado Pago, dinero en cuenta
+    "MODO_1": 0.0532,   # MODO, 1 cuota (= débito/crédito)
+    "MODO_3": 0.228569, # MODO, 3 cuotas (= crédito 3 cuotas)
+    "MODO_6": 0.3072,   # MODO, 6 cuotas (= crédito 6 cuotas)
+    "OFFLINE": 0.0,     # "A convenir" / pago manual, sin pasarela
 }
+
+
+def _get_rates() -> dict:
+    """Tasas vigentes: pestaña "⚙️ Comisiones" del Sheet, o el respaldo fijo
+    si esa pestaña no se pudo leer."""
+    try:
+        rates = get_commission_rates()
+    except Exception:
+        rates = {}
+    return rates if rates else _FALLBACK_RATES
+
+
+def _card_key(prefix: str, installments: int) -> str:
+    cuotas = installments if installments in (3, 6) else 1
+    return f"{prefix}_{cuotas}"
 
 
 def _fmt_pct(rate: float) -> str:
@@ -50,38 +67,43 @@ async def register_webhook(event: str, url: str) -> dict:
 
 
 def calculate_commission(order: dict) -> tuple:
-    """Determina medio de pago y % de comisión real de la orden.
+    """Determina medio de pago y % de comisión real de la orden, leyendo
+    las tasas vigentes de la pestaña "⚙️ Comisiones" del Sheet.
 
     Devuelve (medio, rate, nota_extra) donde:
-    - medio: "TC" | "TRF" | "MP" | ""
+    - medio: "TC" | "TRF" | "MP" | "MODO" | ""
     - rate: float (0.0532 = 5.32%) o None si no se pudo determinar
-      (medio no configurado todavía, ej. MODO o Pago Fácil).
+      (medio o cuotas sin fila configurada en la pestaña).
     - nota_extra: detalle legible del medio (para la columna Notas).
     """
+    rates = _get_rates()
     gateway = (order.get("gateway") or "").lower()
     pd = order.get("payment_details") or {}
     method = (pd.get("method") or "").lower()
     company = (pd.get("credit_card_company") or "").lower()
     installments = pd.get("installments") or 1
+    cuotas = installments if installments > 1 else 1
 
     if method == "wire_transfer":
-        return "TRF", COMMISSION_TRANSFER, "Transferencia bancaria"
+        rate = rates.get("TRF")
+        return "TRF", rate, "Transferencia bancaria"
 
     if method in ("credit_card", "debit_card"):
-        rate_info = CARD_RATES_BY_INSTALLMENTS.get(installments if installments > 1 else 1)
-        if rate_info:
-            rate, label = rate_info
-            return "TC", rate, f"Débito/crédito, {label}"
+        key = _card_key("TC", cuotas)
+        rate = rates.get(key)
+        if rate is not None:
+            return "TC", rate, f"Débito/crédito, {cuotas} cuota(s)"
         return "TC", None, f"Crédito, {installments} cuotas (comisión no configurada)"
 
     if method == "wallet":
         if company == "wallet":
-            return "MP", COMMISSION_MP_WALLET, "Mercado Pago, dinero en cuenta"
+            rate = rates.get("MP")
+            return "MP", rate, "Mercado Pago, dinero en cuenta"
         if company == "modo":
-            rate_info = CARD_RATES_BY_INSTALLMENTS.get(installments if installments > 1 else 1)
-            if rate_info:
-                rate, label = rate_info
-                return "MODO", rate, f"MODO, {label} (misma comisión que débito/crédito)"
+            key = _card_key("MODO", cuotas)
+            rate = rates.get(key)
+            if rate is not None:
+                return "MODO", rate, f"MODO, {cuotas} cuota(s)"
             return "MODO", None, f"MODO, {installments} cuotas (comisión no configurada)"
         return "MP", None, f"Billetera '{company or 'desconocida'}' (comisión no configurada)"
 
@@ -89,7 +111,8 @@ def calculate_commission(order: dict) -> tuple:
         return "", None, f"Ticket/{company or 'efectivo'} (comisión no configurada)"
 
     if method == "custom" or gateway == "offline":
-        return "", COMMISSION_OFFLINE, "A convenir / pago manual"
+        rate = rates.get("OFFLINE", 0.0)
+        return "", rate, "A convenir / pago manual"
 
     return "", None, f"Medio de pago desconocido (gateway={gateway or 's/d'}, method={method or 's/d'})"
 
