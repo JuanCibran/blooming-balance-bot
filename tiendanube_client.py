@@ -100,11 +100,12 @@ def calculate_commission(order: dict) -> tuple:
             rate = rates.get("MP")
             return "MP", rate, "Mercado Pago, dinero en cuenta"
         if company == "modo":
-            key = _card_key("MODO", cuotas)
-            rate = rates.get(key)
-            if rate is not None:
-                return "MODO", rate, f"MODO, {cuotas} cuota(s)"
-            return "MODO", None, f"MODO, {installments} cuotas (comisión no configurada)"
+            # Tienda Nube siempre informa installments=1 para MODO, sin
+            # importar las cuotas reales que eligió el cliente (confirmado
+            # con la orden #224, pagada en 3 cuotas y reportada como 1 por
+            # la API). No hay forma de confiar en este campo para MODO, así
+            # que siempre queda para revisión manual.
+            return "MODO", None, "MODO (Tienda Nube no informa las cuotas reales — confirmar y cargar a mano)"
         return "MP", None, f"Billetera '{company or 'desconocida'}' (comisión no configurada)"
 
     if method == "ticket":
