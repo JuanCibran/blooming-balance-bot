@@ -20,9 +20,9 @@ _FALLBACK_RATES = {
     "TC_3": 0.228569,   # Crédito, 3 cuotas
     "TC_6": 0.3072,     # Crédito, 6 cuotas
     "MP": 0.0611,       # Mercado Pago, dinero en cuenta
-    "MODO_1": 0.0532,   # MODO, 1 cuota (= débito/crédito)
-    "MODO_3": 0.228569, # MODO, 3 cuotas (= crédito 3 cuotas)
-    "MODO_6": 0.3072,   # MODO, 6 cuotas (= crédito 6 cuotas)
+    "MODO_1": 0.0532,   # MODO, 1 cuota
+    "MODO_3": 0.229,    # MODO, 3 cuotas (distinto de TC_3: 22.9% vs 22.8569%)
+    "MODO_6": 0.3072,   # MODO, 6 cuotas
     "OFFLINE": 0.0,     # "A convenir" / pago manual, sin pasarela
 }
 
